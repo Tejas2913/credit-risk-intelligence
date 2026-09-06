@@ -1,0 +1,14 @@
+{
+    "model": "CatBoost",
+    "selection_metric": "PR-AUC",
+    "validation_roc_auc": 0.7877957938047138,
+    "validation_pr_auc": 0.286224558412012,
+    "validation_precision": 0.28239289446186,
+    "validation_recall": 0.435448136958711,
+    "validation_f1": 0.34260359717930433,
+    "classification_threshold": 0.6600000000000001,
+    "training_rows": 246008,
+    "validation_rows": 61503,
+    "feature_count": 231,
+    "positive_class_ratio": 0.08072881945686496
+}

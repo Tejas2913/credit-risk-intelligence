@@ -1,0 +1,57 @@
+# ==============================================================================
+# Docker Build Context Ignore List
+# ==============================================================================
+
+# Secrets & Environment Configuration
+.env
+.env.local
+.env.*.local
+
+# Version Control
+.git/
+.gitignore
+
+# Python Bytecode, Caches & Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+ENV/
+
+# Node & Frontend Build Artifacts
+node_modules/
+client/node_modules/
+client/dist/
+
+# Large Raw Datasets (Per Assignment Rules)
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Notebook Checkpoints & Docs
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+*.pdf
+
+# Operating System & Editor Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace

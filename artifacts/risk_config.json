@@ -1,0 +1,22 @@
+{
+    "classification_threshold": 0.6600000000000001,
+    "risk_bands": {
+        "Low": {
+            "min_probability": 0.0,
+            "max_probability": 0.3
+        },
+        "Medium": {
+            "min_probability": 0.3,
+            "max_probability": 0.6
+        },
+        "High": {
+            "min_probability": 0.6,
+            "max_probability": 1.0
+        }
+    },
+    "decisions": {
+        "Low": "Approve / Low Risk",
+        "Medium": "Manual Review",
+        "High": "High Risk / Reject Recommendation"
+    }
+}
