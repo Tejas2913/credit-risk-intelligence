@@ -3,6 +3,7 @@
 An end-to-end AI-powered credit risk decision-support platform built on the Home Credit Default Risk dataset.
 
 The platform provides three core capabilities exposed through a unified FastAPI backend and a modern React + Tailwind CSS dashboard:
+
 1. **Module 1: Exploratory Data Analysis & Business Insights** (`/api/eda/*`)
 2. **Module 2: ML Credit Risk Inference & Explainability (TreeSHAP XAI)** (`/api/ml/*`)
 3. **Module 3: Talk-to-Data Natural Language to SQL Analytics Assistant** (`/api/chat`)
@@ -54,6 +55,7 @@ The platform provides three core capabilities exposed through a unified FastAPI 
 ```
 
 ### Docker Network & Runtime Flow
+
 - **Browser Client**: Interacts with the frontend at `http://localhost:3000`.
 - **Nginx Reverse Proxy**: Serves compiled React SPA static assets and proxies API calls (`/api/*`, `/health`) to the FastAPI backend over the internal Docker network `credit-risk-net`.
 - **FastAPI Backend**: Runs inside its container listening on internal port `8000` (not exposed directly on the host for security). It loads precomputed ML artifacts and queries pre-built SQLite databases in read-only mode (`?mode=ro`).
@@ -76,14 +78,14 @@ The platform provides three core capabilities exposed through a unified FastAPI 
 
 ## 3. Technology Stack
 
-| Layer | Technologies |
-|---|---|
-| **Backend Framework** | Python 3.10+, FastAPI, Uvicorn, Pydantic v2 |
-| **Machine Learning & XAI** | CatBoost 1.2+, LightGBM, XGBoost, Scikit-learn, SHAP (TreeExplainer) |
-| **Data Storage & Querying** | SQLite3 (Read-Only mode `file:...?mode=ro`), Pandas, NumPy |
-| **LLM & NL-to-SQL** | Groq API (`openai/gpt-oss-120b`), OpenRouter API (`meta-llama/llama-3.3-70b-instruct`) |
-| **Frontend UI** | React 18, Vite, Tailwind CSS, Lucide React, Recharts |
-| **Containerization & Web Server** | Docker, Docker Compose, Nginx (Alpine-based production build) |
+| Layer                                   | Technologies                                                                               |
+| --------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **Backend Framework**             | Python 3.10+, FastAPI, Uvicorn, Pydantic v2                                                |
+| **Machine Learning & XAI**        | CatBoost 1.2+, LightGBM, XGBoost, Scikit-learn, SHAP (TreeExplainer)                       |
+| **Data Storage & Querying**       | SQLite3 (Read-Only mode`file:...?mode=ro`), Pandas, NumPy                                |
+| **LLM & NL-to-SQL**               | Groq API (`openai/gpt-oss-120b`), OpenRouter API (`meta-llama/llama-3.3-70b-instruct`) |
+| **Frontend UI**                   | React 18, Vite, Tailwind CSS, Lucide React, Recharts                                       |
+| **Containerization & Web Server** | Docker, Docker Compose, Nginx (Alpine-based production build)                              |
 
 ---
 
@@ -118,21 +120,24 @@ Analysis of the 307,511 historical loan applications revealed strong observation
 ## 6. Model Selection Rationale and Class Imbalance Strategy
 
 ### Model Selection Evaluation
+
 Four machine learning algorithms were trained and evaluated on a stratified validation split (80% train / 20% validation, 61,503 validation applicants):
 
-| Model | ROC-AUC | PR-AUC | Precision | Recall | F1 Score |
-|---|---|---|---|---|---|
-| **Logistic Regression (Baseline)** | 0.7735 | 0.2608 | 0.1749 | 0.6975 | 0.2797 |
-| **XGBoost** | 0.7874 | 0.2848 | 0.2045 | 0.6455 | 0.3107 |
-| **LightGBM** | 0.7870 | 0.2844 | 0.1930 | 0.6806 | 0.3008 |
-| **CatBoost (Selected Final Model)** | **0.7878** | **0.2862** | 0.2009 | 0.6618 | 0.3082 |
+| Model                                     | ROC-AUC          | PR-AUC           | Precision | Recall | F1 Score |
+| ----------------------------------------- | ---------------- | ---------------- | --------- | ------ | -------- |
+| **Logistic Regression (Baseline)**  | 0.7735           | 0.2608           | 0.1749    | 0.6975 | 0.2797   |
+| **XGBoost**                         | 0.7874           | 0.2848           | 0.2045    | 0.6455 | 0.3107   |
+| **LightGBM**                        | 0.7870           | 0.2844           | 0.1930    | 0.6806 | 0.3008   |
+| **CatBoost (Selected Final Model)** | **0.7878** | **0.2862** | 0.2009    | 0.6618 | 0.3082   |
 
 ### Selection Rationale
+
 - **Primary Metric (PR-AUC)**: Due to severe class imbalance (8.07% default rate), Area Under the Precision-Recall Curve (PR-AUC) was chosen as the primary selection criterion because ROC-AUC can present an overly optimistic view when the majority class dominates.
 - **Performance**: CatBoost achieved the highest PR-AUC (**0.2862**) and highest ROC-AUC (**0.7878**) among all evaluated candidates.
 - **Categorical Handling**: CatBoost natively handles categorical variables, preserving categorical structure without high-dimensional sparse one-hot encoding.
 
 ### Class Imbalance Handling & Threshold Tuning
+
 - **Stratified Splitting**: Stratified train/validation splitting ensured identical 8.07% default proportions in training and evaluation sets.
 - **Class Weighting**: CatBoost was trained with class weights to penalize false negatives proportionally.
 - **Threshold Optimization**: The model comparison table above reflects standard evaluation metrics. The final operating classification threshold was subsequently tuned on the validation set to maximize F1 score, yielding an optimal decision threshold of **0.66**.
@@ -144,22 +149,22 @@ Four machine learning algorithms were trained and evaluated on a stratified vali
 
 ### Final CatBoost Model Validation Results (Operating Threshold = 0.66)
 
-| Metric | Score | Business Meaning |
-|---|---|---|
-| **ROC-AUC** | **0.7878** | Ability of the model to rank risky borrowers above safe borrowers across all possible cutoffs. |
-| **PR-AUC** | **0.2862** | Precision-Recall trade-off specifically focusing on the rare positive default class (baseline = 0.0807). |
-| **Precision** | **0.2824** | Of all applicants flagged by the model as high risk, 28.24% were actual defaults. |
-| **Recall** | **0.4354** | The model successfully identified 43.54% of all actual defaulters in the validation population. |
-| **F1 Score** | **0.3426** | Harmonic mean balancing precision and recall at the 0.66 threshold (optimized from 0.3082 baseline). |
-| **Accuracy** | **0.8651** | Overall percentage of correct classifications (86.51%). |
+| Metric              | Score            | Business Meaning                                                                                         |
+| ------------------- | ---------------- | -------------------------------------------------------------------------------------------------------- |
+| **ROC-AUC**   | **0.7878** | Ability of the model to rank risky borrowers above safe borrowers across all possible cutoffs.           |
+| **PR-AUC**    | **0.2862** | Precision-Recall trade-off specifically focusing on the rare positive default class (baseline = 0.0807). |
+| **Precision** | **0.2824** | Of all applicants flagged by the model as high risk, 28.24% were actual defaults.                        |
+| **Recall**    | **0.4354** | The model successfully identified 43.54% of all actual defaulters in the validation population.          |
+| **F1 Score**  | **0.3426** | Harmonic mean balancing precision and recall at the 0.66 threshold (optimized from 0.3082 baseline).     |
+| **Accuracy**  | **0.8651** | Overall percentage of correct classifications (86.51%).                                                  |
 
 ### Confusion Matrix (Validation Set: N = 61,503)
 
-| | Predicted Non-Default (0) | Predicted Default (1) | Total Actual |
-|---|---|---|---|
-| **Actual Non-Default (0)** | **51,044** (TN) | **5,494** (FP) | 56,538 |
-| **Actual Default (1)** | **2,803** (FN) | **2,162** (TP) | 4,965 |
-| **Total Predicted** | 53,847 | 7,656 | 61,503 |
+|                                  | Predicted Non-Default (0) | Predicted Default (1) | Total Actual |
+| -------------------------------- | ------------------------- | --------------------- | ------------ |
+| **Actual Non-Default (0)** | **51,044** (TN)     | **5,494** (FP)  | 56,538       |
+| **Actual Default (1)**     | **2,803** (FN)      | **2,162** (TP)  | 4,965        |
+| **Total Predicted**        | 53,847                    | 7,656                 | 61,503       |
 
 *(Note: Model comparison metrics evaluate ranking capability across all thresholds, whereas the metrics above reflect operational classification at the tuned 0.66 cutoff.)*
 
@@ -170,7 +175,9 @@ Four machine learning algorithms were trained and evaluated on a stratified vali
 The platform utilizes **TreeSHAP** (`shap.TreeExplainer`) for model interpretability at both portfolio and applicant levels:
 
 ### Global Feature Importance
+
 The top 10 features driving global credit risk predictions across the portfolio are:
+
 1. `EXT_SOURCE_2`: Normalized external credit bureau score 2.
 2. `EXT_SOURCE_3`: Normalized external credit bureau score 3.
 3. `EXT_SOURCE_1`: Normalized external credit bureau score 1.
@@ -185,6 +192,7 @@ The top 10 features driving global credit risk predictions across the portfolio 
 *(Note: SHAP values describe how features contribute to the model's prediction; they are not causal explanations.)*
 
 ### Local Interpretability & Fair Lending Guardrails
+
 - For any evaluated applicant, the platform calculates local SHAP values showing the exact positive (risk-increasing) and negative (risk-reducing) feature contributions.
 - **Protected-Attribute Masking**: To adhere to fair lending standards, protected demographic features (`CODE_GENDER`, `NAME_FAMILY_STATUS`, `NAME_EDUCATION_TYPE`, `FLAG_OWN_CAR`, `FLAG_OWN_REALTY`) are excluded from user-facing SHAP waterfall explanations in the API response. Masking filters presentation without altering model calculation or resulting in zeroed factors.
 
@@ -209,17 +217,18 @@ Risk Band Assignment:
 
 ### Validation Band Distribution & Observed Default Rates
 
-| Risk Band | Probability Range | Validation Count | Population Share | Observed Default Rate | Decision-Support Recommendation |
-|---|---|---|---|---|---|
-| **Low Risk** | $< 0.30$ | 28,809 | 46.84% | **2.21%** | Approve / Low Risk |
-| **Medium Risk** | $0.30 - 0.599$ | 22,152 | 36.02% | **7.78%** | Manual Review |
-| **High Risk** | $\ge 0.60$ | 10,542 | 17.14% | **24.69%** | High Risk / Reject Recommendation |
+| Risk Band             | Probability Range | Validation Count | Population Share | Observed Default Rate | Decision-Support Recommendation   |
+| --------------------- | ----------------- | ---------------- | ---------------- | --------------------- | --------------------------------- |
+| **Low Risk**    | $< 0.30$        | 28,809           | 46.84%           | **2.21%**       | Approve / Low Risk                |
+| **Medium Risk** | $0.30 - 0.599$  | 22,152           | 36.02%           | **7.78%**       | Manual Review                     |
+| **High Risk**   | $\ge 0.60$      | 10,542           | 17.14%           | **24.69%**      | High Risk / Reject Recommendation |
 
 *Monotonic increase in empirical default rates across risk bands (2.21% $\rightarrow$ 7.78% $\rightarrow$ 24.69%) confirms strong risk separation.*
 
 ### Sample Outputs
 
 #### Example 1: Low-Risk Applicant (ID `396899`)
+
 - **Predicted Default Probability**: `0.228251` (22.83%)
 - **Risk Score**: `22.83 / 100`
 - **Assigned Risk Band**: `Low`
@@ -227,6 +236,7 @@ Risk Band Assignment:
 - **Key SHAP Drivers**: Strong external credit scores (`EXT_SOURCE_2` SHAP `-0.1822`), average credit limit (`BUREAU_AVG_LIMIT` SHAP `-0.1546`), and zero historical late payments.
 
 #### Example 2: High-Risk Applicant (ID `100002`)
+
 - **Predicted Default Probability**: `0.827562` (82.76%)
 - **Risk Score**: `82.76 / 100`
 - **Assigned Risk Band**: `High`
@@ -243,19 +253,22 @@ Risk Band Assignment:
 To bridge individual ML scoring with conversational portfolio analytics, the analytical database incorporates a dedicated model-derived table:
 
 ### `applicant_risk_scores` Table Schema
+
 - `sk_id_curr` (INTEGER, Primary Key): Unique applicant identifier.
 - `default_probability` (REAL): CatBoost model predicted default probability (0.0 to 1.0).
 - `risk_score` (REAL): Standardized risk score (`default_probability * 100`).
-- `risk_band` (TEXT): Calibrated risk category (`'Low'`, `'Medium'`, `'High'`).
+- `risk_band` (TEXT): Risk category (`'Low'`, `'Medium'`, `'High'`).
 
 All 307,511 applicants have precomputed CatBoost risk scores matching the live ML predictor.
 
 ### Important Distinction: TARGET vs. Predicted Risk
+
 - **`TARGET`**: Historical observed loan outcome from the 2018 dataset (`0` = Repaid, `1` = Defaulted). Used for historical retrospective analytics.
 - **`default_probability` / `risk_score`**: Forward-looking CatBoost machine learning model prediction. Used for risk assessment and predictive tiering.
 - The platform enforces this distinction so historical default rates and model-predicted risks are never conflated.
 
 ### Sample Model-Risk Queries Supported by Talk-to-Data
+
 - *"How many applicants are high risk?"*
 - *"What percentage of applicants are classified as high risk?"*
 - *"Show me the top 5 high-risk applicants."*
@@ -299,7 +312,9 @@ User Analytical Question
 ## 12. Relational Database Capability & SQL Security Controls
 
 ### Approved Relational Tables
+
 Controlled applicant-level relational queries are supported across five normalized analytical summary tables:
+
 - **`applicants`**: Core demographic, income, credit amount, annuity, and external bureau scores.
 - **`bureau_summary`**: Total credit bureau record count and aggregate active bureau debt.
 - **`previous_application_summary`**: Historical Home Credit application count and refusal rates.
@@ -308,6 +323,7 @@ Controlled applicant-level relational queries are supported across five normaliz
 - **`applicant_analytics`**: Unified 31-column analytics table retained for backward compatibility.
 
 ### Multi-Layer Security Controls
+
 - **SELECT-Only Enforcement**: Query validator strictly enforces `SELECT` statements via SQL AST and keyword validation.
 - **DDL/DML Blocking**: Blocks `DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, `ATTACH`, `DETACH`, `CREATE`, `REPLACE`, and `PRAGMA`.
 - **Single-Statement Enforcement**: Blocks semicolons and multi-statement execution payloads.
@@ -324,12 +340,14 @@ Controlled applicant-level relational queries are supported across five normaliz
 ## 13. Prompt Engineering and Token Optimization
 
 ### Prompt Engineering Architecture
+
 1. **Schema-Aware System Prompt**: Prompts provide exact table schemas, column data types, business descriptions, primary join keys (`sk_id_curr`), aggregate functions, and strict JSON output formatting.
 2. **Current Question Isolation**: Active user questions are isolated within `CURRENT QUESTION:` tags to prevent instruction injection.
 3. **Structured JSON Output**: The LLM responds in strict JSON (`{"intent": "...", "sql": "...", "reason": "..."}`), eliminating markdown wrapping and conversational fluff.
 4. **Grounded Response Generation**: The narrative synthesizer receives only the executed tabular result rows, generating factual executive summaries without hallucinations.
 
 ### Token Optimization & Efficiency
+
 - **Compact Schema Representation**: Only schema definitions and column metadata are passed to the model—no raw database rows are transmitted to external LLMs.
 - **Deterministic Pattern Bypass**: Standard single-table and relational questions are resolved locally via deterministic regex matching, avoiding external API token usage.
 - **Bounded Conversation Context**: Session history is capped using an in-memory LRU cache.
@@ -341,6 +359,7 @@ Controlled applicant-level relational queries are supported across five normaliz
 ## 14. Step-by-Step Setup, Deployment and Operations
 
 ### 14.1 Prerequisites
+
 - **Python**: 3.10, 3.11, or 3.12 + `pip` (for local non-Docker backend execution)
 - **Node.js**: 18.x or 20.x + `npm` (for local non-Docker frontend development)
 - **Docker**: Docker Desktop v24+ with Docker Compose v2+ (for containerized deployment)
@@ -351,11 +370,13 @@ Controlled applicant-level relational queries are supported across five normaliz
 ---
 
 ### 14.2 What Is Included (Processed Runtime Assets)
+
 The repository is distributed with all processed runtime assets necessary to immediately launch and evaluate the application:
+
 - `artifacts/catboost_credit_risk_model.cbm` (2.23 MB): Trained CatBoost binary classification model.
 - `artifacts/feature_columns.pkl` (4.83 KB): Ordered list of 231 feature columns for inference alignment.
 - `artifacts/model_metadata.json` (469 B): Model performance metrics, operating threshold ($0.66$), and training parameters.
-- `artifacts/risk_config.json` (531 B): Decision threshold rules, risk band calibrations, and policy recommendations.
+- `artifacts/risk_config.json` (531 B): Decision threshold rules, risk-band thresholds, and policy recommendations.
 - `data/credit_risk_analytics.db` (261.46 MB): Normalized SQLite analytical data warehouse with 307,511 applicants across 5 relational tables + `applicant_risk_scores`.
 - `data/model_features.db` (285.91 MB): High-speed compact SQLite inference feature store containing precomputed feature vectors for all 307,511 applicants.
 - `notebooks/credit-risk-intelligence-platform-eda-ml.ipynb` (1.32 MB): Complete exploratory data analysis and ML model training evidence notebook.
@@ -364,6 +385,7 @@ The repository is distributed with all processed runtime assets necessary to imm
 ---
 
 ### 14.3 What Is NOT Included (Raw Dataset Policy)
+
 - The original raw Home Credit Default Risk CSV files (~2.64 GB total: `application_train.csv`, `bureau.csv`, `bureau_balance.csv`, `previous_application.csv`, `POS_CASH_balance.csv`, `credit_card_balance.csv`, `installments_payments.csv`) are **intentionally excluded** from this repository.
 - **Why?** Raw CSVs were used offline during feature engineering and database preparation. The live application queries the pre-built, indexed SQLite databases and serialized model artifacts.
 - **Action Required**: None. Evaluators should **not** download or place the 2.64 GB raw CSV dataset into the repository to run the application.
@@ -371,7 +393,9 @@ The repository is distributed with all processed runtime assets necessary to imm
 ---
 
 ### 14.4 Runtime Database & Artifact Requirements
+
 Before starting the backend or Docker stack, verify the following files exist in their respective directories:
+
 - `data/credit_risk_analytics.db`
 - `data/model_features.db`
 - `artifacts/catboost_credit_risk_model.cbm`
@@ -386,6 +410,7 @@ Before starting the backend or Docker stack, verify the following files exist in
 ### 14.5 Environment Configuration
 
 #### Step 1 — Copy the Configuration Template
+
 From the project root:
 
 - **Windows PowerShell**:
@@ -398,7 +423,9 @@ From the project root:
   ```
 
 #### Step 2 — Configure Environment Variables in `.env`
+
 Edit `.env` to configure your preferred LLM provider for Talk-to-Data:
+
 ```env
 # Application Environment
 APP_ENV=development
@@ -435,7 +462,9 @@ OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct
 ### 14.6 Option A: Local Non-Docker Development
 
 #### 1. Backend Setup
+
 From the project root:
+
 ```bash
 # Create Python virtual environment
 python -m venv .venv
@@ -452,6 +481,7 @@ pip install -r requirements.txt
 # Start FastAPI backend service
 python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000
 ```
+
 - **Backend Service Root**: `http://localhost:8000`
 - **Interactive Swagger Docs**: `http://localhost:8000/docs`
 - **Backend Health Check**: `http://localhost:8000/health`
@@ -459,21 +489,27 @@ python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000
 *(Note: These URLs apply specifically to non-Docker local backend execution).*
 
 #### 2. Frontend Setup
+
 Because `client/node_modules/` was removed during repository cleanup, restore dependencies before running:
+
 ```bash
 cd client
 npm install
 npm run dev
 ```
+
 - The Vite development server starts at `http://localhost:3000` and automatically proxies `/api/*` and `/health` requests to `http://127.0.0.1:8000`.
 - For standalone frontend development against custom endpoints, refer to `client/.env.example` (`VITE_API_BASE_URL`).
 - Return to the project root:
+
 ```bash
 cd ..
 ```
 
 #### 3. Full-Stack Local Development
+
 Run the two processes simultaneously in separate terminals:
+
 - **Terminal 1 (Backend)**: `python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000`
 - **Terminal 2 (Frontend)**: `cd client && npm run dev`
 - **Application URL**: Open **[http://localhost:3000](http://localhost:3000)** in your browser.
@@ -485,29 +521,36 @@ Run the two processes simultaneously in separate terminals:
 From the project root:
 
 #### 1. Verify Environment File
+
 Ensure `.env` exists (`cp .env.example .env` or `Copy-Item .env.example .env`).
 
 #### 2. Build and Start Multi-Container Stack
+
 ```bash
 docker compose up --build -d
 ```
 
 #### 3. Check Container Health
+
 ```bash
 docker compose ps
 ```
+
 Both `credit-risk-backend` and `credit-risk-frontend` should report status `Up (healthy)`.
 
 #### 4. Follow Container Logs
+
 ```bash
 docker compose logs -f
 ```
 
 #### 5. Access the Application
+
 - Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 
 > [!NOTE]
 > **Docker Port Architecture**:
+>
 > - The frontend is exposed on host port `3000`.
 > - Backend port `8000` is **internal** to the private Docker network (`credit-risk-net`) for security.
 > - Nginx reverse-proxies all `/api/*` and `/health` requests directly to `http://backend:8000/`.
@@ -571,6 +614,7 @@ After opening `http://localhost:3000` (or `http://<EC2_PUBLIC_IP>:3000`), verify
 ---
 
 ### 14.11 Build-Time vs. Runtime Data Architecture
+
 - **Offline / Data Preparation Phase**:
   - Used raw Home Credit CSVs to construct normalized analytical tables, pre-engineer 231 features, train the CatBoost model, and populate `applicant_risk_scores`.
 - **Runtime / Demonstration Phase**:
@@ -580,7 +624,9 @@ After opening `http://localhost:3000` (or `http://<EC2_PUBLIC_IP>:3000`), verify
 ---
 
 ### 14.12 Optional: Rebuilding Databases From Raw Data
+
 If reproducing the offline data preparation pipeline from scratch:
+
 1. Obtain the Home Credit Default Risk raw CSV files from Kaggle.
 2. Set the environment variable to your local raw dataset directory:
    ```bash
@@ -592,6 +638,7 @@ If reproducing the offline data preparation pipeline from scratch:
    python src/ml/build_feature_store.py
    python src/talk_to_data/build_risk_scores.py
    ```
+
 *(Note: This step is entirely optional and unnecessary for running or evaluating the application).*
 
 ---
@@ -599,6 +646,7 @@ If reproducing the offline data preparation pipeline from scratch:
 ## 15. Security Hardening and Verification Testing
 
 ### 15.1 Automated Test Execution
+
 The platform includes comprehensive unit, integration, and security test coverage:
 
 ```bash
@@ -615,6 +663,7 @@ docker compose ps
 ```
 
 ### 15.2 Validation Test Results
+
 - **Full Backend Test Discovery**: **101 / 101 tests passed** (`Ran 101 tests in 29.576s - OK`).
 - **Security Regression Suite**: **34 / 34 tests passed** (SQL injection, prompt injection, sensitive data leakage, underwriting redirection).
 - **Talk-to-Data Regression Suite**: **22 / 22 queries passed** across deterministic shortcuts and schema-aware queries.
@@ -623,6 +672,7 @@ docker compose ps
 - **Benchmark Consistency**: Verified 100% numerical agreement between live CatBoost predictor, feature store, `applicant_risk_scores` table, Docker API, and SHAP explainer for benchmark applicants (`396899` and `100002`).
 
 ### 15.3 Security Hardening Measures Implemented
+
 - **No Path Leakage**: Generic error responses prevent exposing server directory paths or filesystem layouts.
 - **Safe Exception Handling**: Stack traces and raw database errors are masked behind clean user-facing error messages.
 - **LRU Session Bounding**: Talk-to-Data chat sessions are managed in an in-memory LRU cache capped at 1,000 active sessions.
@@ -637,6 +687,7 @@ docker compose ps
 ## 16. Known Limitations, Future Improvements, Operations & Submission
 
 ### 16.1 Known Limitations
+
 1. **Model & Validation Scope**:
    - The CatBoost model was evaluated on a single stratified 80/20 train/validation split.
    - The optimal threshold of `0.66` was selected on the validation set to maximize F1 for prototype demonstration; production lending policies require regulatory cutoff calibration.
@@ -653,6 +704,7 @@ docker compose ps
    - The prototype does not include user login or Role-Based Access Control (RBAC).
 
 ### 16.2 Possible Future Improvements
+
 - **Probability Calibration**: Implementation of Platt Scaling or Isotonic Regression to ensure output probabilities match empirical default frequencies across all deciles.
 - **Algorithmic Fairness Audits**: Comprehensive fairness evaluations using metrics such as Disparate Impact Ratio, Equalized Odds, and Demographic Parity.
 - **Model Drift & Monitoring**: Integration of automated drift detection tools (e.g., Evidently AI) to monitor feature drift and concept drift in production.
@@ -662,153 +714,31 @@ docker compose ps
 
 ### 16.3 Troubleshooting Guide
 
-| Issue | Likely Cause | Resolution |
-|---|---|---|
-| **Docker containers fail to start** | Port 3000 already occupied or daemon not running | Run `docker compose ps` and `docker compose logs -f`. Ensure host port 3000 is free. |
-| **Missing database error on startup** | Database files missing from `data/` | Verify `data/credit_risk_analytics.db` (261.46 MB) and `data/model_features.db` (285.91 MB) exist. |
-| **Missing model artifact error** | Files missing from `artifacts/` | Verify all four files in `artifacts/` (`catboost_credit_risk_model.cbm`, `feature_columns.pkl`, `model_metadata.json`, `risk_config.json`) exist. |
-| **Talk-to-Data uses deterministic fallback** | API key not provided or invalid | Check `LLM_PROVIDER`, `GROQ_API_KEY`, or `OPENROUTER_API_KEY` in `.env`. Ensure `.env` is in the project root. |
-| **Frontend cannot connect to backend (Docker)** | Browser attempting to reach port 8000 | Always access `http://localhost:3000`. Nginx automatically proxies API requests to internal backend port 8000. |
-| **Frontend cannot connect (Local Non-Docker)** | FastAPI backend not running | Ensure Uvicorn is running on port 8000 in a separate terminal. |
-| **Frontend npm build or dependency errors** | Missing `node_modules/` | Run `cd client && npm install` to restore dependencies from `package-lock.json`. Do not delete lockfiles. |
+| Issue                                                 | Likely Cause                                     | Resolution                                                                                                                                                 |
+| ----------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Docker containers fail to start**             | Port 3000 already occupied or daemon not running | Run`docker compose ps` and `docker compose logs -f`. Ensure host port 3000 is free.                                                                    |
+| **Missing database error on startup**           | Database files missing from`data/`             | Verify`data/credit_risk_analytics.db` (261.46 MB) and `data/model_features.db` (285.91 MB) exist.                                                      |
+| **Missing model artifact error**                | Files missing from`artifacts/`                 | Verify all four files in`artifacts/` (`catboost_credit_risk_model.cbm`, `feature_columns.pkl`, `model_metadata.json`, `risk_config.json`) exist. |
+| **Talk-to-Data uses deterministic fallback**    | API key not provided or invalid                  | Check`LLM_PROVIDER`, `GROQ_API_KEY`, or `OPENROUTER_API_KEY` in `.env`. Ensure `.env` is in the project root.                                    |
+| **Frontend cannot connect to backend (Docker)** | Browser attempting to reach port 8000            | Always access`http://localhost:3000`. Nginx automatically proxies API requests to internal backend port 8000.                                            |
+| **Frontend cannot connect (Local Non-Docker)**  | FastAPI backend not running                      | Ensure Uvicorn is running on port 8000 in a separate terminal.                                                                                             |
+| **Frontend npm build or dependency errors**     | Missing`node_modules/`                         | Run`cd client && npm install` to restore dependencies from `package-lock.json`. Do not delete lockfiles.                                               |
 
-### 16.4 Preparing the Project for Submission / Archive
-
-#### Files to Include in Submission Archive:
-- `src/` (All backend source code, routes, ML engines, rules, and test files)
-- `client/src/` (React frontend source code, components, pages, CSS)
-- `client/Dockerfile` (Multi-stage production build), `client/nginx.conf`, `client/package.json`, `client/package-lock.json`, `client/vite.config.js`, `client/tailwind.config.js`, `client/postcss.config.js`, `client/index.html`
-- `artifacts/` (Trained model, feature index, model metadata, risk config)
-- `data/` (`credit_risk_analytics.db`, `model_features.db`, `.gitkeep`)
-- `notebooks/` (`credit-risk-intelligence-platform-eda-ml.ipynb`)
-- `sql/` (`schema.sql`, `sample_queries.sql`)
-- `Dockerfile`, `docker-compose.yml`, `requirements.txt`, `README.md`, `.env.example`, `.gitignore`, `.dockerignore`
-- Assignment PDF specifications (`NeoStats_*.pdf`, optional reference documents)
-
-#### Files to Explicitly Exclude from Submission:
-- `.env` (Never commit or distribute real API keys or private credentials)
-- Raw Home Credit CSV files (2.64 GB raw dataset is excluded per assignment rules)
-- `client/node_modules/` (Restored automatically via `npm install` or built inside Docker)
-- `client/dist/` (Generated automatically during Docker multi-stage build or `npm run build`)
-- `__pycache__/` and `*.pyc` files
-- Temporary logs, debug scripts, or IDE scratch directories
-
----
-
-### 16.5 Project Directory Tree
+### 16.4 Project Structure
 
 ```
 credit-risk-intelligence/
-├── .dockerignore
-├── .env.example
-├── .gitignore
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-├── README.md
-├── NeoStats_AI_Use_Case.pdf
-├── NeoStats_Candidate_Assignment.pdf
-│
-├── artifacts/
-│   ├── catboost_credit_risk_model.cbm        [2.23 MB Model Binary]
-│   ├── feature_columns.pkl                   [4.83 KB Feature Alignment Index]
-│   ├── model_metadata.json                   [469 B Model Hyperparameters & Threshold]
-│   └── risk_config.json                      [531 B Risk Bands & Decision Policies]
-│
-├── client/
-│   ├── .dockerignore
-│   ├── .env.example
-│   ├── Dockerfile                           [Multi-Stage Node.js + Nginx Container]
-│   ├── index.html
-│   ├── nginx.conf                           [Reverse Proxy Configuration]
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── postcss.config.js
-│   ├── tailwind.config.js
-│   ├── vite.config.js
-│   └── src/
-│       ├── App.jsx
-│       ├── index.css
-│       ├── main.jsx
-│       ├── components/
-│       │   ├── ChatInput.jsx
-│       │   ├── ChatMessage.jsx
-│       │   ├── ErrorMessage.jsx
-│       │   ├── InsightChart.jsx
-│       │   ├── LoadingState.jsx
-│       │   ├── Navbar.jsx
-│       │   ├── RiskGauge.jsx
-│       │   ├── RiskResult.jsx
-│       │   ├── ShapFactors.jsx
-│       │   └── SummaryCard.jsx
-│       ├── pages/
-│       │   ├── Dashboard.jsx
-│       │   ├── RiskAnalysis.jsx
-│       │   └── TalkToData.jsx
-│       └── services/
-│           └── api.js
-│
-├── data/
-│   ├── .gitkeep
-│   ├── credit_risk_analytics.db              [261.46 MB SQLite Data Warehouse]
-│   └── model_features.db                     [285.91 MB Inference Feature Store]
-│
-├── documents/
-│   └── .gitkeep
-│
-├── notebooks/
-│   └── credit-risk-intelligence-platform-eda-ml.ipynb [1.32 MB EDA & Training Notebook]
-│
-├── sql/
-│   ├── sample_queries.sql
-│   └── schema.sql
-│
-└── src/
-    ├── api/
-    │   ├── README.md
-    │   ├── __init__.py
-    │   ├── dependencies.py
-    │   ├── main.py
-    │   ├── schemas.py
-    │   ├── test_api.py                      [FastAPI Route Test Suite]
-    │   └── routes/
-    │       ├── __init__.py
-    │       ├── chat.py
-    │       ├── eda.py
-    │       └── ml.py
-    ├── ml/
-    │   ├── __init__.py
-    │   ├── build_feature_store.py
-    │   ├── explainer.py
-    │   ├── feature_store.py
-    │   ├── predictor.py
-    │   └── test_inference_store.py          [Feature Store & Model Test Suite]
-    ├── rules/
-    │   ├── __init__.py
-    │   └── risk_rules.py
-    ├── talk_to_data/
-    │   ├── __init__.py
-    │   ├── build_database.py
-    │   ├── build_risk_scores.py
-    │   ├── chatbot.py
-    │   ├── database.py
-    │   ├── llm.py
-    │   ├── prompts.py
-    │   ├── query_engine.py
-    │   ├── response_generator.py
-    │   ├── schema.py
-    │   ├── sql_generator.py
-    │   ├── sql_validator.py
-    │   ├── test_general_schema_queries.py   [General NL-to-SQL Test Suite]
-    │   ├── test_llm_providers.py            [LLM Failover Test Suite]
-    │   ├── test_relational_queries.py       [Relational Query Test Suite]
-    │   ├── test_talk_to_data.py             [Intent & Security Test Suite]
-    │   └── test_talk_to_data_e2e.py         [E2E Conversation Test Suite]
-    └── utils/
-        └── .gitkeep
+├── src/                 # Backend FastAPI application, ML scoring, TreeSHAP explainer, and Talk-to-Data NL-to-SQL
+├── client/              # React 18 + Vite frontend dashboard and production Nginx reverse proxy configuration
+├── artifacts/           # Trained CatBoost model binary, feature index, model metadata, and risk rules configuration
+├── data/                # Processed read-only SQLite databases (credit_risk_analytics.db & model_features.db)
+├── notebooks/           # Exploratory Data Analysis (EDA) and model training research notebook
+├── sql/                 # SQLite database DDL schema definitions and reference analytical SQL queries
+├── Dockerfile           # Production backend FastAPI container configuration
+├── docker-compose.yml   # Multi-container orchestration stack (frontend + backend + private bridge network)
+└── requirements.txt     # Backend Python dependency specifications
 ```
 
 ---
 
 > **Final Note:** This project is an AI-assisted credit risk decision-support prototype. Its ML predictions, explanations, business rules, and conversational analytics are intended to support human analysis and evaluation rather than replace human underwriting decision-making.
-
