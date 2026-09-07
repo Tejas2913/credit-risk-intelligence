@@ -515,7 +515,19 @@ docker compose logs -f
 
 ---
 
-### 14.8 Docker Lifecycle Commands
+### 14.8 AWS EC2 Cloud Deployment Access
+
+When deployed on an AWS EC2 instance (e.g. Ubuntu LTS with Docker & Docker Compose):
+
+- **Local Docker Access**: `http://localhost:3000`
+- **AWS EC2 Access**: `http://<EC2_PUBLIC_IP>:3000`
+- **Security Group Configuration**: The EC2 instance security group must allow inbound TCP traffic on **port 3000** for external evaluation access.
+- **Backend Isolation**: Backend port `8000` remains internal to the private Docker bridge network (`credit-risk-net`) and should **not** be publicly exposed.
+- **Reverse Proxy Routing**: Nginx in the frontend container serves the compiled React static assets and reverse-proxies `/api/*` and `/health` requests directly to `http://backend:8000/`.
+
+---
+
+### 14.9 Docker Lifecycle Commands
 
 - **Stop All Containers**:
   ```bash
@@ -532,9 +544,9 @@ docker compose logs -f
 
 ---
 
-### 14.9 Verifying the Application After Startup
+### 14.10 Verifying the Application After Startup
 
-After opening `http://localhost:3000`, verify core functionality:
+After opening `http://localhost:3000` (or `http://<EC2_PUBLIC_IP>:3000`), verify core functionality:
 
 1. **Dashboard (`/`)**:
    - Check that portfolio KPIs (307,511 Total Applicants, 8.07% Default Rate, etc.) load immediately.
@@ -558,7 +570,7 @@ After opening `http://localhost:3000`, verify core functionality:
 
 ---
 
-### 14.10 Build-Time vs. Runtime Data Architecture
+### 14.11 Build-Time vs. Runtime Data Architecture
 - **Offline / Data Preparation Phase**:
   - Used raw Home Credit CSVs to construct normalized analytical tables, pre-engineer 231 features, train the CatBoost model, and populate `applicant_risk_scores`.
 - **Runtime / Demonstration Phase**:
@@ -567,7 +579,7 @@ After opening `http://localhost:3000`, verify core functionality:
 
 ---
 
-### 14.11 Optional: Rebuilding Databases From Raw Data
+### 14.12 Optional: Rebuilding Databases From Raw Data
 If reproducing the offline data preparation pipeline from scratch:
 1. Obtain the Home Credit Default Risk raw CSV files from Kaggle.
 2. Set the environment variable to your local raw dataset directory:
@@ -590,7 +602,7 @@ If reproducing the offline data preparation pipeline from scratch:
 The platform includes comprehensive unit, integration, and security test coverage:
 
 ```bash
-# Run the complete automated test suite (100 tests)
+# Run the complete automated test suite (101 tests)
 python -m unittest discover -s src -p "test_*.py"
 
 # Test production frontend build
@@ -603,7 +615,7 @@ docker compose ps
 ```
 
 ### 15.2 Validation Test Results
-- **Full Backend Test Discovery**: **100 / 100 tests passed** (`Ran 100 tests in 54.085s - OK`).
+- **Full Backend Test Discovery**: **101 / 101 tests passed** (`Ran 101 tests in 29.576s - OK`).
 - **Security Regression Suite**: **34 / 34 tests passed** (SQL injection, prompt injection, sensitive data leakage, underwriting redirection).
 - **Talk-to-Data Regression Suite**: **22 / 22 queries passed** across deterministic shortcuts and schema-aware queries.
 - **Frontend Production Build**: `npm run build` completed cleanly (582 KB JS, 26 KB CSS).
@@ -665,8 +677,7 @@ docker compose ps
 #### Files to Include in Submission Archive:
 - `src/` (All backend source code, routes, ML engines, rules, and test files)
 - `client/src/` (React frontend source code, components, pages, CSS)
-- `client/dist/` (Pre-compiled production frontend bundle required by `client/Dockerfile`)
-- `client/Dockerfile`, `client/nginx.conf`, `client/package.json`, `client/package-lock.json`, `client/vite.config.js`, `client/tailwind.config.js`, `client/postcss.config.js`, `client/index.html`
+- `client/Dockerfile` (Multi-stage production build), `client/nginx.conf`, `client/package.json`, `client/package-lock.json`, `client/vite.config.js`, `client/tailwind.config.js`, `client/postcss.config.js`, `client/index.html`
 - `artifacts/` (Trained model, feature index, model metadata, risk config)
 - `data/` (`credit_risk_analytics.db`, `model_features.db`, `.gitkeep`)
 - `notebooks/` (`credit-risk-intelligence-platform-eda-ml.ipynb`)
@@ -677,7 +688,8 @@ docker compose ps
 #### Files to Explicitly Exclude from Submission:
 - `.env` (Never commit or distribute real API keys or private credentials)
 - Raw Home Credit CSV files (2.64 GB raw dataset is excluded per assignment rules)
-- `client/node_modules/` (Restored automatically via `npm install`)
+- `client/node_modules/` (Restored automatically via `npm install` or built inside Docker)
+- `client/dist/` (Generated automatically during Docker multi-stage build or `npm run build`)
 - `__pycache__/` and `*.pyc` files
 - Temporary logs, debug scripts, or IDE scratch directories
 
@@ -706,7 +718,7 @@ credit-risk-intelligence/
 ├── client/
 │   ├── .dockerignore
 │   ├── .env.example
-│   ├── Dockerfile                           [Nginx Production Container]
+│   ├── Dockerfile                           [Multi-Stage Node.js + Nginx Container]
 │   ├── index.html
 │   ├── nginx.conf                           [Reverse Proxy Configuration]
 │   ├── package.json
@@ -714,11 +726,6 @@ credit-risk-intelligence/
 │   ├── postcss.config.js
 │   ├── tailwind.config.js
 │   ├── vite.config.js
-│   ├── dist/                                [Pre-compiled Frontend Assets]
-│   │   ├── index.html
-│   │   └── assets/
-│   │       ├── index-*.js
-│   │       └── index-*.css
 │   └── src/
 │       ├── App.jsx
 │       ├── index.css
